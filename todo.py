@@ -2,55 +2,69 @@ import os
 import sys
 from datetime import datetime
 
+# Import click
 try:
     import click
 except ImportError:
+    # Install click package if it doesn't exist
     from io import StringIO
 
     from pip._internal import main as pip
 
+    # Redirecting Standard output and error to String Streams
     sys.stderr, sys.stdout = StringIO(), StringIO()
     pip(['install', '--user', 'click'])
+
+    # Redirect standard output and error back to console
     sys.stdout = sys.__stdout__
     sys.stderr = sys.__stderr__
     import click
 
-
-def help_():
+# Function to get help text
+def get_help():
     commands = [
         'Usage :-',
-        '$ ./todo add "todo item" # Add a new todo',
-        '$ ./todo ls\t\t # Show remaining todos',
-        '$ ./todo del NUMBER\t # Delete a todo',
-        '$ ./todo done NUMBER\t # Complete a todo',
-        '$ ./todo help\t\t # Show usage',
-        '$ ./todo report\t\t # Statistics',
+        '$ ./todo add "todo item"  # Add a new todo',
+        '$ ./todo ls               # Show remaining todos',
+        '$ ./todo del NUMBER       # Delete a todo',
+        '$ ./todo done NUMBER      # Complete a todo',
+        '$ ./todo help             # Show usage',
+        '$ ./todo report           # Statistics',
     ]
     print("\n".join(commands))
     sys.exit(0)
 
 
-def add_todo(todo_item):
+def add_todo_item(todo_item):
     with open('todo.txt', 'a+') as f:
         f.write(todo_item + "\n")
         print(f'Added todo: "{todo_item}"')
 
 
-def delete_todo(number):
+def delete_todo(todo_number):
     try:
         with open('todo.txt', 'r+') as f:
             data = f.readlines()
-        item = data.pop(number - 1)
+        if todo_number == 0:
+            raise IndexError
+        item = data.pop(todo_number - 1)
         with open('todo.txt', 'w') as f:
             f.writelines(data)
         return item
     except (IndexError, FileNotFoundError):
-        return f'Error: todo #{number} does not exist.'
+        return f'Error: todo #{todo_number} does not exist.'
 
 
-def show_todos():
-    with open('todo.txt') as f:
-        data = f.readlines()
+def show_pending_todos():
+    try:
+        with open('todo.txt') as f:
+            data = f.readlines()
+    except FileNotFoundError:
+        print('There are no pending todos!')
+        sys.exit(0)
+
+    if len(data) == 0:
+        print('There are no pending todos!')
     data = data[::-1]
 
     pending_todos = len(data)
@@ -58,16 +72,22 @@ def show_todos():
         print(f'[{pending_todos-i}] {data[i].strip()}')
 
 
-def complete_todo(number):
-    todo_item = delete_todo(number)
+# Mark a todo as Done
+def complete_todo(todo_number):
+    # Call delete_todo to remove item from todo list
+    todo_item = delete_todo(todo_number)
+    # Check if there was an error
     if todo_item.startswith('Error'):
         print(todo_item)
         sys.exit(0)
 
+    # Get current date in UTC format
     today_date = datetime.utcnow().strftime('%Y-%m-%d')
     with open('done.txt', 'a+') as f:
         f.write(f'x {today_date} {todo_item}')
 
+
+# Get Statistics
 def get_report():
     try:
         with open('todo.txt', 'r+') as f:
@@ -82,46 +102,57 @@ def get_report():
     today_date = datetime.utcnow().strftime('%Y-%m-%d')
     print(f'{today_date} Pending : {pending} Completed : {completed}')
 
+
 @click.command()
-@click.argument('src', nargs=-1)
-def main(src):
-    if len(src) == 0 or src[0] == 'help':
-        help_()
+@click.argument('arg', nargs=-1)  # Taking all arguments provided in a tuple
+def main(arg):
+    # show help to user
+    if len(arg) == 0 or arg[0] == 'help':
+        get_help()
 
-    elif src[0] == 'add':
-        add_todo(src[1])
-
-    elif src[0] == 'del':
+    # Add item to todo
+    elif arg[0] == 'add':
         try:
-            if len(src) == 1:
-                raise ValueError
-            number = int(src[1])
+            add_todo_item(arg[1])
+        except IndexError:
+            print('Error: Missing todo string. Nothing added!')
+
+    # Remove item from todo
+    elif arg[0] == 'del':
+        try:
+            number = int(arg[1])
             todo_item = delete_todo(number)
             if todo_item.startswith('Error'):
-                print(todo_item, "Nothing Deleted.")
-            print(f'Deleted todo #{number}')
+                print(todo_item, "Nothing deleted.")
+            else:
+                print(f'Deleted todo #{number}')
         except ValueError:
             print(f'Error: Please provide a valid number to delete item')
+        except IndexError:
+            print('Error: Missing NUMBER for deleting todo.')
 
-    elif src[0] == 'ls':
-        show_todos()
+    # Show pending todos
+    elif arg[0] == 'ls':
+        show_pending_todos()
 
-    elif src[0] == 'done':
+    # Mark a todo as done
+    elif arg[0] == 'done':
         try:
-            if len(src) == 1:
-                raise ValueError
-            number = int(src[1])
+            number = int(arg[1])
             complete_todo(number)
             print(f'Marked todo #{number} as done.')
-        except Exception as e:
-            print(e)
+        except IndexError:
+            print('Error: Missing NUMBER for marking todo as done.')
 
-    elif src[0] == 'report':
+    # Get Report of Pending and Completed todos
+    elif arg[0] == 'report':
         get_report()
 
+    # Giving help when a wrong option is selected
     else:
         print('Please select valid option')
-        help_()
+        get_help()
+
 
 if __name__ == '__main__':
     main()
