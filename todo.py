@@ -1,4 +1,3 @@
-import os
 import sys
 from datetime import datetime
 
@@ -20,6 +19,7 @@ except ImportError:
     sys.stderr = sys.__stderr__
     import click
 
+
 # Function to get help text
 def get_help():
     commands = [
@@ -31,7 +31,9 @@ def get_help():
         '$ ./todo help             # Show usage',
         '$ ./todo report           # Statistics',
     ]
-    print("\n".join(commands))
+    string = "\n".join(commands)
+    # Use buffer to write to make sure test pass on windows
+    sys.stdout.buffer.write(bytes(string, encoding='utf-8'))
     sys.exit(0)
 
 
@@ -69,7 +71,10 @@ def show_pending_todos():
 
     pending_todos = len(data)
     for i in range(pending_todos):
-        print(f'[{pending_todos-i}] {data[i].strip()}')
+        # Use buffer to write to make sure test pass on windows
+        sys.stdout.buffer.write(
+            bytes(f'[{pending_todos-i}] {data[i]}', encoding='utf-8')
+        )
 
 
 # Mark a todo as Done
@@ -127,7 +132,7 @@ def main(arg):
             else:
                 print(f'Deleted todo #{number}')
         except ValueError:
-            print(f'Error: Please provide a valid number to delete item')
+            print('Error: Please provide a valid number to delete item')
         except IndexError:
             print('Error: Missing NUMBER for deleting todo.')
 
